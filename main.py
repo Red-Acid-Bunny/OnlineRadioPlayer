@@ -4,6 +4,7 @@ from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent, QMediaPlaylist
 from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QPushButton, QGridLayout, QLabel, QListWidget, QInputDialog, QFileDialog
 import time
 import requests
+import os.path
 
 class Demo(QWidget):
     def __init__(self):
@@ -79,25 +80,28 @@ class Demo(QWidget):
 
     def loadMedia(self,fname):
         if fname==False:
-            fname = QFileDialog.getOpenFileName(self, 'Open file', './')[0]
-        temp = []
-        f = open(fname, 'r')
-        with f:
-            for i in f:
-                t = i 
-                t = self.clearStr(t)
-                if t!='':
-                    temp.append(i[0:-1])
-        f.close()
-        self.stopMedia()
-        self.Name = []
-        self.listUrl.clear()
-        self.playlist.clear()
-        for i in range(0,len(temp),2):
-            self.Name.append(temp[i])
-            self.playlist.addMedia(
-                    QMediaContent(QUrl(self.clearStr(temp[i+1]))))    
-        self.updateListUrl()
+            fname = QFileDialog.getOpenFileName(
+                    self, 'Open file', './')[0]
+
+        if os.path.exists(fname):
+            temp = []
+            f = open(fname, 'r')
+            with f:
+                for i in f:
+                    t = i 
+                    t = self.clearStr(t)
+                    if t!='':
+                        temp.append(i[0:-1])
+            f.close()
+            self.stopMedia()
+            self.Name = []
+            self.listUrl.clear()
+            self.playlist.clear()
+            for i in range(0,len(temp),2):
+                self.Name.append(temp[i])
+                self.playlist.addMedia(
+                        QMediaContent(QUrl(self.clearStr(temp[i+1]))))    
+            self.updateListUrl()
 
     def addMedia(self):
         name, ok = QInputDialog.getText(self, 'Input Dialog', 'Enter name:')
@@ -141,7 +145,8 @@ class Demo(QWidget):
         return s.replace(' ','').replace('\t','').replace('\n','')
 
     def getUrlFromFile(self):
-        self.loadMedia("url.txt")
+        default = "url.txt"
+        self.loadMedia(default)
 
     def updateListUrl(self):
         self.listUrl.clear()
