@@ -1,0 +1,10 @@
+Phonk96
+http://radiorecord.hostingradio.ru/phonk96.aacp
+Радио SP12
+https://myradio24.org/5894
+Вести FM
+https://icecast-vgtrk.cdnvideo.ru/vestifm_aac_64kbps
+test2
+http://stream.tatarradio.ru:2068/kazan.aac
+Радио Владивосток FM (Преображение)
+http://vladfm.com:8000/preobrajenie.vfm
