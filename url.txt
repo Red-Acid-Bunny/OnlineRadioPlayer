@@ -4,5 +4,5 @@ http://radiorecord.hostingradio.ru/phonk96.aacp
 https://myradio24.org/5894
 Вести FM
 https://icecast-vgtrk.cdnvideo.ru/vestifm_aac_64kbps
-test
+News
 https://bfm.hostingradio.ru:9075/fm
