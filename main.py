@@ -1,171 +1,261 @@
+"""A module that provides functions for accessing command line arguments"""
 import sys
-from PyQt5.Qt import QUrl, Qt
-from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent, QMediaPlaylist
-from PyQt5.QtWidgets import QApplication, QWidget, QSlider, QPushButton, QGridLayout, QLabel, QListWidget, QInputDialog, QFileDialog
-import time
-import requests
-import os.path
 
-class Demo(QWidget):
+import PyQt5
+import PyQt5.Qt
+import PyQt5.QtMultimedia
+import PyQt5.QtWidgets
+
+
+DEFAULT_DATA_PATH = "./url.txt"
+
+class OnlineRadioPlayer(PyQt5.QtWidgets.QWidget):
+    """Main class"""
     def __init__(self):
-        super(Demo, self).__init__()
-        self.player = QMediaPlayer(self)
-        self.playlist = QMediaPlaylist()
-        self.player.setPlaylist(self.playlist)        
-        self.player.playlist().setPlaybackMode(QMediaPlaylist.Loop)
+        super().__init__()
+        self.player = PyQt5.QtMultimedia.QMediaPlayer(self)
+        self.playlist = PyQt5.QtMultimedia.QMediaPlaylist()
+        self.player.setPlaylist(self.playlist)
+        self.player.playlist().setPlaybackMode(
+                PyQt5.QtMultimedia.QMediaPlaylist.Loop
+                )
 
-        self.Name = []
-        self.listUrl = QListWidget()
+        self.names_of_radio_stations = []
+        self.links_to_radio_stations = PyQt5.QtWidgets.QListWidget()
 
-        self.getUrlFromFile()
-        
-        self.volumeslider = QSlider(Qt.Horizontal)
-        self.volumeslider.setFocusPolicy(Qt.NoFocus)
-        self.volumeslider.valueChanged[int].connect(self.change_volume)
-        self.volumeslider.setValue(30)
-        self.volume = self.volumeslider.value()
+        self.load_media(DEFAULT_DATA_PATH)
+        self.update_links_to_radio_stantions()
+        self.update_name_of_the_current_station()
 
-        play_btn  = QPushButton('Play')   
-        play_btn.clicked.connect(self.playMedia)
-        pause_btn = QPushButton('Pause')  
-        pause_btn.clicked.connect(self.pauseMedia)
-        stop_btn  = QPushButton('Stop')   
-        stop_btn.clicked.connect(self.stopMedia)
-        next_btn  = QPushButton('Next')   
-        next_btn.clicked.connect(self.nextMedia)
-        prev_btn  = QPushButton('Prev')   
-        prev_btn.clicked.connect(self.prevMedia)
-        add_btn  = QPushButton('Add')   
-        add_btn.clicked.connect(self.addMedia)
-        save_btn  = QPushButton('Save')   
-        save_btn.clicked.connect(self.saveMedia)
-        load_btn  = QPushButton('Load')   
-        load_btn.clicked.connect(self.loadMedia)
-        
-        self.label = QLabel(self)
+        # Volume
+        self.volume_slider = PyQt5.QtWidgets.QSlider(PyQt5.Qt.Qt.Horizontal)
+        self.volume_slider.setFocusPolicy(PyQt5.Qt.Qt.NoFocus)
+        self.volume_slider.valueChanged.connect(self.change_volume)
+        self.volume_slider.setValue(30)
+        self.volume = self.volume_slider.value()
+        self.player.setVolume(self.volume)
 
-        maxSize = 3
-        layout = QGridLayout(self)
-        layout.addWidget(self.label, 0, 0, 1, maxSize)
+        # Buttons
+        play_btn = PyQt5.QtWidgets.QPushButton('Play')
+        play_btn.clicked.connect(self.play_media)
+
+        pause_btn = PyQt5.QtWidgets.QPushButton('Pause')
+        pause_btn.clicked.connect(self.pause_media)
+
+        stop_btn = PyQt5.QtWidgets.QPushButton('Stop')
+        stop_btn.clicked.connect(self.stop_media)
+
+        next_btn = PyQt5.QtWidgets.QPushButton('Next')
+        next_btn.clicked.connect(self.next_media)
+
+        prev_btn = PyQt5.QtWidgets.QPushButton('Prev')
+        prev_btn.clicked.connect(self.prev_media)
+
+        add_btn = PyQt5.QtWidgets.QPushButton('Add')
+        add_btn.clicked.connect(self.add_media)
+
+        save_btn = PyQt5.QtWidgets.QPushButton('Save')
+        save_btn.clicked.connect(self.save_media)
+
+        load_btn  = PyQt5.QtWidgets.QPushButton('Load')
+        load_btn.clicked.connect(self.load_media)
+
+        # List names of radio station
+        self.links_to_radio_stations.itemClicked.connect(self.set_track)
+
+        # Labels
+        self.name_of_the_current_station = PyQt5.QtWidgets.QLabel(self)
+
+        # Ui
+        max_size = 3
+
+        layout = PyQt5.QtWidgets.QGridLayout(self)
+
+        layout.addWidget(self.name_of_the_current_station, 0, 0, 1, max_size)
+
         layout.addWidget(play_btn, 1, 0)
         layout.addWidget(pause_btn, 1, 1)
         layout.addWidget(stop_btn, 1, 2)
+
         layout.addWidget(prev_btn, 2, 0)
         layout.addWidget(next_btn, 2, 1)
+
+        layout.addWidget(self.volume_slider, 3, 0, 1, max_size)
+
+        layout.addWidget(self.links_to_radio_stations, 4,0,1,max_size)
+
         layout.addWidget(add_btn, 5, 0)
         layout.addWidget(load_btn, 5, 1)
         layout.addWidget(save_btn, 5, 2)
-        layout.addWidget(self.volumeslider, 3, 0, 1, maxSize)
-        
-        self.updateListUrl()
-        self.listUrl.itemClicked.connect(self.setTrack)
-        layout.addWidget(self.listUrl, 4,0,1,maxSize)
-
-        self.player.setVolume(self.volume)
-        self.updateCurrenInfo()
 
     def change_volume(self, value):
+        """ change volume """
         self.player.setVolume(value)
 
-    def saveMedia(self):
-        fname = QFileDialog.getOpenFileName(self, 'Save file', './')[0]
-        f = open(fname, 'w')
-        with f:
+    def save_media(self):
+        """ Save """
+        file_path = PyQt5.QtWidgets.QFileDialog.getOpenFileName(
+                self, 'Save file', './'
+                )[0]
+        with open(file_path, encoding="utf-8") as file:
             playlist = self.playlist
-            for i in range(len(self.Name)):
-                f.write(self.Name[i]+'\n')
-                t = playlist.media(i).canonicalUrl().toString()
-                f.write(t+'\n')
-        f.close()
+            for i, name in enumerate(self.names_of_radio_stations):
+                file.write(name + '\n')
+                temp = playlist.media(i).canonicalUrl().toString()
+                file.write(temp + '\n')
+        file.close()
 
-    def loadMedia(self,fname):
-        if fname==False:
-            fname = QFileDialog.getOpenFileName(
-                    self, 'Open file', './')[0]
+    def load_media(self,file_path):
+        """ Load """
+        if not file_path:
+            file_path = PyQt5.QtWidgets.QFileDialog.getOpenFileName(
+                    self, 'Open file', './'
+                    )[0]
 
-        if os.path.exists(fname):
-            temp = []
-            f = open(fname, 'r')
-            with f:
-                for i in f:
-                    t = i 
-                    t = self.clearStr(t)
-                    if t!='':
-                        temp.append(i[0:-1])
-            f.close()
-            self.stopMedia()
-            self.Name = []
-            self.listUrl.clear()
-            self.playlist.clear()
-            for i in range(0,len(temp),2):
-                self.Name.append(temp[i])
-                self.playlist.addMedia(
-                        QMediaContent(QUrl(self.clearStr(temp[i+1]))))    
-            self.updateListUrl()
+        temp_names_of_radio_stations = []
 
-    def addMedia(self):
-        name, ok = QInputDialog.getText(self, 'Input Dialog', 'Enter name:')
-        print(name,ok)
-        if ok==False:
-            return 0
-        link, ok = QInputDialog.getText(self, 'Input Dialog', 'Enter link:')
-        link = self.clearStr(link)
-        print(link,ok)
-        if ok==False:
-            return 0
-        self.Name.append(name)
-        self.playlist.addMedia(QMediaContent(QUrl(link)))    
-        self.updateListUrl()
+        data = []
+        with open(file_path, encoding="utf-8") as file:
+            for line in file:
+                temp = line
+                temp = self.clear_str(temp)
+                if temp!='':
+                    data.append(line)
+        file.close()
+        p = 0
+        for i, string in enumerate(data):
+            if (i+p)%2 == 0:
+                temp_names_of_radio_stations.append(["No name","No url"])
+                if (string.find("https://", 0, 8) == -1 and
+                        string.find("http://", 0, 7) == -1):
+                    temp_names_of_radio_stations[-1][0] = string[0:-1]
+                else:
+                    temp_names_of_radio_stations[-1][1] = string[0:-1]
+                    if p == 0:
+                        p = 1
+                    else:
+                        p = 0
+            else:
+                if (string.find("https://", 0, 8) == -1 and
+                        string.find("http://", 0, 7) == -1):
+                    temp_names_of_radio_stations[-1][0] = string[0:-1]
+                    if p == 0:
+                        p = 1
+                    else:
+                        p = 0
+                else:
+                    temp_names_of_radio_stations[-1][1] = string[0:-1]
 
-    def playMedia(self):
-        self.player.play()  
-        self.updateCurrenInfo()
 
-    def pauseMedia(self):
-        self.player.pause()        
-    
-    def nextMedia(self):
+        for i, obj in enumerate(temp_names_of_radio_stations):
+            if obj[1] == "No url":
+                temp_names_of_radio_stations.pop(i)
+
+
+        self.stop_media()
+
+        # Clear
+        self.names_of_radio_stations = []
+        self.links_to_radio_stations.clear()
+        self.playlist.clear()
+
+        for i in temp_names_of_radio_stations:
+            self.names_of_radio_stations.append(i[0])
+            self.playlist.addMedia(
+                    PyQt5.QtMultimedia.QMediaContent(
+                        PyQt5.Qt.QUrl(self.clear_str(i[1]))
+                        )
+                    )
+        self.update_links_to_radio_stantions()
+
+    def add_media(self):
+        """ Add radio station """
+        radio_station_name, status = PyQt5.QtWidgets.QInputDialog.getText(
+                self, 'Input Dialog', 'Enter the name of the radio station:'
+                )
+
+        if not status:
+            return False
+
+        link_to_the_radio_station, status = PyQt5.QtWidgets.QInputDialog.getText(
+                self, 'Input Dialog', 'Enter the link to the radio station:'
+                )
+
+        link_to_the_radio_station = self.clear_str(link_to_the_radio_station)
+
+        if not status:
+            return False
+
+        self.names_of_radio_stations.append(radio_station_name)
+        self.playlist.add_media(
+                PyQt5.QtMultimedia.QMediaContent(
+                    PyQt5.Qt.QUrl(link_to_the_radio_station)
+                    )
+                )
+        self.update_links_to_radio_stantions()
+        return True
+
+    def play_media(self):
+        """ Play """
+        self.player.play()
+        self.update_name_of_the_current_station()
+
+    def pause_media(self):
+        """ Pause """
+        self.player.pause()
+
+    def stop_media(self):
+        """ Stop """
+        self.player.stop()
+        self.update_name_of_the_current_station(True)
+
+    def next_media(self):
+        """ Next station """
+
         self.player.playlist().next()
-        self.updateCurrenInfo()
+        self.update_name_of_the_current_station()
 
-    def prevMedia(self):
-        self.player.playlist().previous()    
-        self.updateCurrenInfo()
+    def prev_media(self):
+        """ Previous station """
+        self.player.playlist().previous()
+        self.update_name_of_the_current_station()
 
-    def stopMedia(self):
-        self.player.stop()  
+    def update_name_of_the_current_station(self, clean = False):
+        """ Update names of radio stations """
+        index = int(self.playlist.currentIndex())
+        if index < self.playlist.mediaCount():
+            if index > -1:
+                if clean:
+                    self.name_of_the_current_station.setText(
+                            ""
+                            )
+                else:
+                    self.name_of_the_current_station.setText(
+                            self.names_of_radio_stations[index]
+                            )
 
-    def updateCurrenInfo(self):
-        Index = int(self.playlist.currentIndex())
-        if Index < self.playlist.mediaCount():
-            if Index > -1:
-                self.label.setText(self.Name[Index])
-
-    def clearStr(self,s :str):
+    def clear_str(self,s :str):
+        """ Remove insignificant characters """
         return s.replace(' ','').replace('\t','').replace('\n','')
 
-    def getUrlFromFile(self):
-        default = "url.txt"
-        self.loadMedia(default)
+    def update_links_to_radio_stantions(self):
+        """ Update links to radio stantions """
+        self.links_to_radio_stations.clear()
+        for name in self.names_of_radio_stations:
+            self.links_to_radio_stations.addItem(name)
 
-    def updateListUrl(self):
-        self.listUrl.clear()
-        for i in range(len(self.Name)):
-            self.listUrl.addItem(self.Name[i])
-            
-
-    def setTrack(self, item):
-        name = item.text()
-        for i in range(len(self.Name)):
-            if name == self.Name[i]:
+    def set_track(self, radio_station_name):
+        """ Set track """
+        for i, name in enumerate(self.names_of_radio_stations):
+            if radio_station_name.text() == name:
                 self.player.playlist().setCurrentIndex(i)
                 break
-        self.updateCurrenInfo()
+        self.update_name_of_the_current_station()
         self.player.play()
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    demo = Demo()
+    app = PyQt5.QtWidgets.QApplication(sys.argv)
+    demo = OnlineRadioPlayer()
     demo.show()
     sys.exit(app.exec_())
