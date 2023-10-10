@@ -1,13 +1,31 @@
 """A module that provides functions for accessing command line arguments"""
 import sys
+from time import sleep
 
 import PyQt5
 import PyQt5.Qt
 import PyQt5.QtMultimedia
 import PyQt5.QtWidgets
+from PyQt5.QtCore import QThread
 
 
 DEFAULT_DATA_PATH = "./url.txt"
+
+class RunThread(QThread):
+    """ Set current row and check play error """
+    def __init__(self, main_window, parent=None):
+        super().__init__(parent)
+        self.main_window = main_window
+
+
+    def run(self):
+        """ run """
+        while True:
+            if self.main_window.player.error() == self.main_window.player.ResourceError:
+                self.main_window.prev_media()
+                self.main_window.play_media()
+            self.main_window.update_list_row()
+            sleep(1)
 
 class OnlineRadioPlayer(PyQt5.QtWidgets.QWidget):
     """Main class"""
@@ -88,22 +106,34 @@ class OnlineRadioPlayer(PyQt5.QtWidgets.QWidget):
         layout.addWidget(load_btn, 5, 1)
         layout.addWidget(save_btn, 5, 2)
 
+        self.progreess_bar_thread = RunThread(main_window=self)
+        self.progreess_bar_thread.start()
+
     def change_volume(self, value):
         """ change volume """
         self.player.setVolume(value)
 
+    def update_list_row(self):
+        """ change volume """
+        a = self.player.playlist().currentIndex()
+        self.links_to_radio_stations.setCurrentRow(a)
+        self.update_name_of_the_current_station()
+
     def save_media(self):
         """ Save """
-        file_path = PyQt5.QtWidgets.QFileDialog.getOpenFileName(
+        file_path = PyQt5.QtWidgets.QFileDialog.getSaveFileName(
                 self, 'Save file', './'
                 )[0]
-        with open(file_path, encoding="utf-8") as file:
+        if file_path == '':
+            return False
+        with open(file_path,'w', encoding="utf-8") as file:
             playlist = self.playlist
             for i, name in enumerate(self.names_of_radio_stations):
                 file.write(name + '\n')
                 temp = playlist.media(i).canonicalUrl().toString()
                 file.write(temp + '\n')
         file.close()
+        return True
 
     def load_media(self,file_path):
         """ Load """
@@ -187,7 +217,7 @@ class OnlineRadioPlayer(PyQt5.QtWidgets.QWidget):
             return False
 
         self.names_of_radio_stations.append(radio_station_name)
-        self.playlist.add_media(
+        self.playlist.addMedia(
                 PyQt5.QtMultimedia.QMediaContent(
                     PyQt5.Qt.QUrl(link_to_the_radio_station)
                     )
@@ -207,11 +237,9 @@ class OnlineRadioPlayer(PyQt5.QtWidgets.QWidget):
     def stop_media(self):
         """ Stop """
         self.player.stop()
-        self.update_name_of_the_current_station(True)
 
     def next_media(self):
         """ Next station """
-
         self.player.playlist().next()
         self.update_name_of_the_current_station()
 
